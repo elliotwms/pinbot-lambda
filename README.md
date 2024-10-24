@@ -1,5 +1,8 @@
 # Pinbot
 
+> [!TIP]
+> Pinbot was recently rewritten to support message interactions. Looking for the old Pinbot? Check out the last version [here](https://github.com/elliotwms/pinbot/tree/v1.10.106)
+
 [Install 📌](https://discord.com/oauth2/authorize?client_id=921554139740254209&permissions=3136&redirect_uri=https%3A%2F%2Fgithub.com%2Felliotwms%2Fpinbot&scope=applications.commands%20bot)
 
 [Join the Pinbot Discord Server](https://discord.gg/a3u2PZ6V28)
