@@ -1,7 +1,7 @@
-# Pinbot
+# 📌 Pinbot ƛ
 
 > [!TIP]
-> Pinbot was recently rewritten to support message interactions. Looking for the old Pinbot? Check out the last version [here](https://github.com/elliotwms/pinbot/tree/v1.10.106)
+> This is a fork of https://github.com/elliotwms/pinbot, rewritten to support being run as an AWS Lambda function
 
 [Install 📌](https://discord.com/oauth2/authorize?client_id=921554139740254209&permissions=3136&redirect_uri=https%3A%2F%2Fgithub.com%2Felliotwms%2Fpinbot&scope=applications.commands%20bot)
 
@@ -16,7 +16,7 @@ Pinbot will reply with a link to the pinned message, and signal it's done by rea
 ### Why does this exist?
 
 Pinbot is designed as an extension to Discord's channel pins system. Use Pinbot to:
-* Bypass Discord's 50-pin limit and create a historic stream of all your pins
+* Bypass Discord's 50-pin limit and create a historic stream of all your pixns
 * Collect all your server's pins into one place (with optional overrides)
 * Give your server's pins a more permanent home
 
