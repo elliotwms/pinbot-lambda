@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/hex"
-	"github.com/elliotwms/bot-lambda/sessionprovider"
 	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/elliotwms/bot-lambda/sessionprovider"
 	"github.com/elliotwms/pinbot/internal/pinbot"
 )
 
