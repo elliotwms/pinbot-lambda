@@ -3,8 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"github.com/elliotwms/bot-lambda/sessionprovider"
-	"github.com/elliotwms/pinbot/internal/pinbot"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,6 +14,8 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
+	"github.com/elliotwms/bot-lambda/sessionprovider"
+	"github.com/elliotwms/pinbot/internal/pinbot"
 	"github.com/neilotoole/slogt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
