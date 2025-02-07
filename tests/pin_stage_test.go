@@ -54,7 +54,7 @@ func NewPinStage(t *testing.T) (*PinStage, *PinStage, *PinStage) {
 		session:   session,
 		require:   require.New(t),
 		assert:    assert.New(t),
-		handler:   e.Handle,
+		handler:   e.HandleRequest,
 		snowflake: node,
 	}
 
@@ -155,7 +155,11 @@ func (s *PinStage) sendInteraction(i *discordgo.InteractionCreate) *PinStage {
 	ctx, _ := xray.BeginSegment(context.Background(), "test")
 
 	s.res, s.err = s.handler(ctx, &events.LambdaFunctionURLRequest{
-		RequestContext:  events.LambdaFunctionURLRequestContext{},
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodPost,
+			},
+		},
 		Body:            string(bs),
 		IsBase64Encoded: false,
 	})

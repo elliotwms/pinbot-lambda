@@ -10,14 +10,14 @@ import (
 	"github.com/elliotwms/pinbot/internal/handlers"
 )
 
-func New(k ed25519.PublicKey, s sessionprovider.Provider, l *slog.Logger) *lambda.Endpoint {
+func New(k ed25519.PublicKey, s sessionprovider.Provider, l *slog.Logger) *bot_lambda.Endpoint {
 	r := router.New(
 		router.WithLogger(l),
 		router.WithDeferredResponse(true),
 	)
 
-	e := lambda.
-		New(k, lambda.WithLogger(l), lambda.WithRouter(r)).
+	e := bot_lambda.
+		New(k, bot_lambda.WithLogger(l), bot_lambda.WithRouter(r)).
 		WithSessionProvider(s).
 		WithMessageApplicationCommand("Pin", handlers.PinMessageCommandHandler)
 
