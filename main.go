@@ -34,5 +34,5 @@ func main() {
 	))
 	h := pinbot.New(k, src, logger)
 
-	lambda.StartWithOptions(h.Handle)
+	lambda.StartWithOptions(h.HandleRequest)
 }
