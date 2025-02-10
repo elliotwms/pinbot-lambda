@@ -1,9 +1,9 @@
 package pinbot
 
 import (
+	"crypto/ed25519"
 	"log/slog"
 
-	"crypto/ed25519"
 	"github.com/elliotwms/bot-lambda"
 	"github.com/elliotwms/bot-lambda/sessionprovider"
 	"github.com/elliotwms/bot/interactions/router"
@@ -11,13 +11,15 @@ import (
 )
 
 func New(k ed25519.PublicKey, s sessionprovider.Provider, l *slog.Logger) *bot_lambda.Endpoint {
-	r := router.New(
-		router.WithLogger(l),
-		router.WithDeferredResponse(true),
-	)
+	r := router.New(router.WithLogger(l))
 
 	e := bot_lambda.
-		New(k, bot_lambda.WithLogger(l), bot_lambda.WithRouter(r)).
+		New(
+			k,
+			bot_lambda.WithLogger(l),
+			bot_lambda.WithRouter(r),
+			bot_lambda.WithDeferredResponseEnabled(true),
+		).
 		WithSessionProvider(s).
 		WithMessageApplicationCommand("Pin", handlers.PinMessageCommandHandler)
 
