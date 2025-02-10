@@ -59,8 +59,8 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.52.0 h1:wqBQpxH71XW0e2g+Og4dzQM8pk34aFYlA1Ga8db7gU0=
 github.com/valyala/fasthttp v1.52.0/go.mod h1:hf5C4QnVMkNXMspnsUlfM3WitlgYflyhHYoKol/szxQ=
-github.com/winebarrel/secretlamb v0.3.0 h1:LLjelbr1CHMa9heykL9qWRuc38ziuF0XluNR0micaIo=
-github.com/winebarrel/secretlamb v0.3.0/go.mod h1:NgcwxaK1aMgLOWkMpxisUsMs3DGdO7ByiOXoQ8wQVjU=
+github.com/winebarrel/secretlamb v0.4.0 h1:3iAf9oiaLk+Z9d/2L/Y8IqQ2PPXy+4MhukMFdSYraOQ=
+github.com/winebarrel/secretlamb v0.4.0/go.mod h1:pe231xRAM1/rY2ElHdcwjuJk3e2+TMpESY6yLxXqeSs=
 golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
 golang.org/x/crypto v0.31.0 h1:ihbySMvVjLAeSH1IbfcRTkD/iNscyz8rGzjF/E5hV6U=
 golang.org/x/crypto v0.31.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
