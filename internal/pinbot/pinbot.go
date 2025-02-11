@@ -11,13 +11,11 @@ import (
 )
 
 func New(k ed25519.PublicKey, s sessionprovider.Provider, l *slog.Logger) *bot_lambda.Endpoint {
-	r := router.New(router.WithLogger(l))
-
 	e := bot_lambda.
 		New(
 			k,
 			bot_lambda.WithLogger(l),
-			bot_lambda.WithRouter(r),
+			bot_lambda.WithRouter(router.New(router.WithLogger(l))),
 			bot_lambda.WithDeferredResponseEnabled(true),
 		).
 		WithSessionProvider(s).
