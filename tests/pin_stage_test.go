@@ -40,7 +40,6 @@ type PinStage struct {
 	pinMessage  *discordgo.Message
 	snowflake   *snowflake.Node
 	interaction *discordgo.Interaction
-	command     *discordgo.ApplicationCommand
 }
 
 func NewPinStage(t *testing.T) (*PinStage, *PinStage, *PinStage) {
