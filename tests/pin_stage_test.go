@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -13,8 +14,9 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
-	"github.com/elliotwms/pinbot/internal/commandhandlers"
-	"github.com/elliotwms/pinbot/internal/endpoint"
+	"github.com/elliotwms/bot-lambda/sessionprovider"
+	"github.com/elliotwms/pinbot/internal/pinbot"
+	"github.com/neilotoole/slogt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,17 +40,20 @@ type PinStage struct {
 	pinMessage  *discordgo.Message
 	snowflake   *snowflake.Node
 	interaction *discordgo.Interaction
-	command     *discordgo.ApplicationCommand
 }
 
 func NewPinStage(t *testing.T) (*PinStage, *PinStage, *PinStage) {
+	slog.SetDefault(slogt.New(t))
+
 	node, _ := snowflake.NewNode(0)
+	e := pinbot.New(nil, sessionprovider.Static(session), slog.Default())
+
 	s := &PinStage{
 		t:         t,
 		session:   session,
 		require:   require.New(t),
 		assert:    assert.New(t),
-		handler:   endpoint.New([]byte{}).WithSession(session).WithApplicationCommand("Pin", commandhandlers.PinMessageCommandHandler).Handle,
+		handler:   e.HandleRequest,
 		snowflake: node,
 	}
 
@@ -149,7 +154,11 @@ func (s *PinStage) sendInteraction(i *discordgo.InteractionCreate) *PinStage {
 	ctx, _ := xray.BeginSegment(context.Background(), "test")
 
 	s.res, s.err = s.handler(ctx, &events.LambdaFunctionURLRequest{
-		RequestContext:  events.LambdaFunctionURLRequestContext{},
+		RequestContext: events.LambdaFunctionURLRequestContext{
+			HTTP: events.LambdaFunctionURLRequestContextHTTPDescription{
+				Method: http.MethodPost,
+			},
+		},
 		Body:            string(bs),
 		IsBase64Encoded: false,
 	})
@@ -303,36 +312,4 @@ func (s *PinStage) the_bot_should_successfully_acknowledge_the_pin() *PinStage {
 	return s.
 		the_bot_should_add_the_emoji("📌").and().
 		the_bot_should_respond_with_message_containing("📌 Pinned")
-}
-
-func (s *PinStage) a_stale_command() *PinStage {
-	var err error
-	s.command, err = session.ApplicationCommandCreate(testAppID, testGuildID, &discordgo.ApplicationCommand{
-		Name: "import",
-		Type: discordgo.ChatApplicationCommand,
-	})
-	s.require.NoError(err)
-
-	return s
-}
-
-func (s *PinStage) the_stale_command_is_triggered() {
-	s.sendInteraction(&discordgo.InteractionCreate{
-		Interaction: &discordgo.Interaction{
-			Type:    discordgo.InteractionApplicationCommand,
-			GuildID: testGuildID,
-			Data: &discordgo.ApplicationCommandInteractionData{
-				Name: "import",
-				ID:   s.command.ID,
-			},
-		},
-	})
-}
-
-func (s *PinStage) the_stale_command_should_be_deleted() {
-	s.require.Eventually(func() bool {
-		_, err := session.ApplicationCommand(testAppID, testGuildID, s.command.ID)
-
-		return err != nil
-	}, time.Second, 50*time.Millisecond)
 }
