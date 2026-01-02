@@ -1,6 +1,6 @@
 module github.com/elliotwms/pinbot
 
-go 1.23.4
+go 1.24.0
 
 require (
 	github.com/aws/aws-lambda-go v1.47.0
@@ -12,7 +12,7 @@ require (
 	github.com/elliotwms/fakediscord v0.18.2
 	github.com/neilotoole/slogt v1.1.0
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.19.0
 )
 
 require (
