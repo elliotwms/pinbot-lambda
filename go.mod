@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/aws/aws-lambda-go v1.47.0
 	github.com/aws/aws-xray-sdk-go v1.8.5
-	github.com/bwmarrin/discordgo v0.28.1
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/elliotwms/bot v0.4.1
 	github.com/elliotwms/bot-lambda v0.1.5
