@@ -11,7 +11,7 @@ require (
 	github.com/elliotwms/bot-lambda v0.1.5
 	github.com/elliotwms/fakediscord v0.18.5
 	github.com/neilotoole/slogt v1.1.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.19.0
 )
 
