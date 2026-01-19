@@ -9,7 +9,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/elliotwms/bot v0.4.8
 	github.com/elliotwms/bot-lambda v0.1.5
-	github.com/elliotwms/fakediscord v0.18.6
+	github.com/elliotwms/fakediscord v0.19.0
 	github.com/neilotoole/slogt v1.1.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.19.0
@@ -35,6 +35,6 @@ require (
 	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
 	google.golang.org/grpc v1.70.0 // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
+	google.golang.org/protobuf v1.36.9 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
