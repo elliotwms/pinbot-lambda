@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-xray-sdk-go v1.8.5
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/bwmarrin/snowflake v0.3.0
-	github.com/elliotwms/bot v0.4.14
+	github.com/elliotwms/bot v0.4.15
 	github.com/elliotwms/bot-lambda v0.1.5
 	github.com/elliotwms/fakediscord v0.20.0
 	github.com/neilotoole/slogt v1.1.0
