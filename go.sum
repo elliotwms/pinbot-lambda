@@ -15,8 +15,8 @@ github.com/bwmarrin/snowflake v0.3.0/go.mod h1:NdZxfVWX+oR6y2K0o6qAYv6gIOP9rjG0/
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/elliotwms/bot v0.4.15 h1:PG3Mulbbdu4VpaWuODVooXhQXwPVOrdqaLSGAg1NWWk=
-github.com/elliotwms/bot v0.4.15/go.mod h1:AZg/dqyY+beFoT6xaDrgLAcvhZAZMpN7pH8BdD3A5sc=
+github.com/elliotwms/bot v0.4.16 h1:pEhhd/b3kvM3jThy2VaJJj+fVx2j8RDcOa0TnatNoN8=
+github.com/elliotwms/bot v0.4.16/go.mod h1:PPJfvYzv+dPWow2ORXmCmKUoIO+m2PUiShT8o+UWlpA=
 github.com/elliotwms/bot-lambda v0.1.5 h1:fK4HWd7eHF7H9i0x2h9UFZm3D3d1xoSPyp/yM/efTnY=
 github.com/elliotwms/bot-lambda v0.1.5/go.mod h1:6F46HtV0eCSNRlHgoMdUJKu5NT8nfUOSvOJ5dC6GDJs=
 github.com/elliotwms/fakediscord v0.20.3 h1:KQIpipTUXDwq/24tSRUfnJdDGYbJFOq4nbALdm4jdVU=
