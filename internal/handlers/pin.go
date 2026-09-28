@@ -124,7 +124,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 
 	log.Info("Pinned message", "pin_message_id", sent.ID)
 
-	return respond(ctx, s, i.Interaction, "📌 Pinned: "+url(i.GuildID, sent.ChannelID, sent.ID))
+	return respond(ctx, s, i.Interaction, "📌 Pinned: "+messageURL(i.GuildID, sent.ChannelID, sent.ID))
 }
 
 // getSourceChannel returns the channel with the given id. Threads are not included in the guild channels list, so if
@@ -155,7 +155,7 @@ func respond(ctx context.Context, s *discordgo.Session, i *discordgo.Interaction
 	return err
 }
 
-func url(guildID, channelID, messageID string) string {
+func messageURL(guildID, channelID, messageID string) string {
 	return fmt.Sprintf(
 		"https://discord.com/channels/%s/%s/%s",
 		guildID,
@@ -173,10 +173,10 @@ func buildPinMessage(sourceChannel *discordgo.Channel, m *discordgo.Message, pin
 		},
 	}
 
-	u := url(sourceChannel.GuildID, m.ChannelID, m.ID)
+	u := messageURL(sourceChannel.GuildID, m.ChannelID, m.ID)
 	embed := &discordgo.MessageEmbed{
 		Author: &discordgo.MessageEmbedAuthor{
-			Name:    m.Author.Username,
+			Name:    m.Author.DisplayName(),
 			IconURL: m.Author.AvatarURL(""),
 			URL:     u,
 		},
