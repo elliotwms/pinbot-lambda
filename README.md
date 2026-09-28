@@ -16,7 +16,7 @@ Pinbot will reply with a link to the pinned message, and signal it's done by rea
 ### Why does this exist?
 
 Pinbot is designed as an extension to Discord's channel pins system. Use Pinbot to:
-* Bypass Discord's 50-pin limit and create a historic stream of all your pixns
+* Bypass Discord's 50-pin limit and create a historic stream of all your pins
 * Collect all your server's pins into one place (with optional overrides)
 * Give your server's pins a more permanent home
 
@@ -36,9 +36,6 @@ To avoid leaking messages to a wider audience, Pinbot skips a pins channel if:
 * the message is from an age-restricted (NSFW) channel and the pins channel is not age-restricted, or
 * the message is from a private thread, or a channel hidden from `@everyone`, and the pins channel is not also hidden from `@everyone`
 
-Whenever Pinbot pins a message, or whenever you update the actual channel pins, Pinbot will trigger a reimport of all 
-the channel's pins. You can also trigger this manually with the `/import` command.
-
 Don't forget that Pinbot needs [permission](#permissions) to see and post in these channels, otherwise it won't be able to do its job.
 
 ⚠️ Note that this bot is currently in [_beta_](https://github.com/elliotwms/pinbot/milestone/2). There may be bugs, please [report them](https://github.com/elliotwms/pinbot/issues/new?labels=bug&template=bug_report.md) ⚠️
@@ -51,7 +48,7 @@ Pinbot is deployed as an AWS Lambda function
 
 Pinbot is designed to be run with as few permissions as possible, however as part of its core functionality it needs to 
 be able to read the contents of messages in your server. If you're not cool with this then you're welcome to audit the
-code yourself, or [host and run your own Pinbot](#run).
+code yourself, or [host and run your own Pinbot](#development).
 
 Pinbot requires the following permissions to function in any channels you intend to use it:
 * Read messages (`VIEW_CHANNEL`)
@@ -62,12 +59,12 @@ Pinbot requires the following permissions to function in any channels you intend
 
 ### Configuration
 
-| Variable             | Description                                                                                          | Required |
-|----------------------|------------------------------------------------------------------------------------------------------|----------|
-| `DISCORD_TOKEN`      | Bot token                                                                                            | `true`   |
-| `DISCORD_PUBLIC_KEY` | Bot public key                                                                                       | `true`   |
-| `LOG_LEVEL`          | [Log level](https://github.com/sirupsen/logrus#level-logging). `trace` enables discord-go debug logs | `false`  |
+| Variable                 | Description                                                                                                                                                                                   | Required |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| `DISCORD_BOT_PUBLIC_KEY` | Hex-encoded public key from the Discord developer portal, used to verify interaction requests                                                                                                | `true`   |
+| `PARAM_DISCORD_TOKEN`    | Name of the SSM Parameter Store parameter holding the bot token. It is read via the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html) | `true`   |
+| `DEBUG`                  | Set to `true` to enable debug logs                                                                                                                                                           | `false`  |
 
 ## Testing
 
-`/tests` contains a suite of integration tests which run against [fakediscord](https://github.com/elliotwms/fakediscord) in a test guild. Simply run `docker-compose up` from the root of the repo and execute the tests.
+`/tests` contains a suite of integration tests which run against [fakediscord](https://github.com/elliotwms/fakediscord) in a test guild. Simply run `docker compose up` from the root of the repo and execute the tests.

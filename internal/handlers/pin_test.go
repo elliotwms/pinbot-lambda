@@ -282,3 +282,13 @@ func TestIsAlreadyPinned_PagesThroughReactions(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, pinned)
 }
+
+func TestBuildPinMessage_AuthorUsesDisplayName(t *testing.T) {
+	source := &discordgo.Channel{ID: "2", GuildID: "1", Name: "test"}
+	m := testMessage()
+	m.Author.GlobalName = "Display Name"
+
+	pin := buildPinMessage(source, m, nil)
+
+	assert.Equal(t, "Display Name", pin.Embeds[0].Author.Name)
+}
