@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/elliotwms/bot/interactions/router"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -18,13 +19,36 @@ const (
 
 	// maxEmbeds is the maximum number of embeds Discord accepts in a single message
 	maxEmbeds = 10
+
+	// maxReactionsPage is the maximum number of users Discord returns per page of reactions
+	maxReactionsPage = 100
 )
 
-func PinMessageCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) (err error) {
-	m := data.Resolved.Messages[data.TargetID]
+// NewPinMessageCommandHandler returns the handler for the "Pin" message command
+func NewPinMessageCommandHandler(l *slog.Logger) router.ApplicationCommandHandler {
+	return func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) error {
+		return pinMessage(ctx, l, s, i, data)
+	}
+}
+
+func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) error {
+	log = log.With("guild_id", i.GuildID, "channel_id", i.ChannelID)
+
+	if i.GuildID == "" {
+		return respond(ctx, s, i.Interaction, "🙅 Messages can only be pinned in servers")
+	}
+
+	var m *discordgo.Message
+	if data.Resolved != nil {
+		m = data.Resolved.Messages[data.TargetID]
+	}
+	if m == nil {
+		log.Error("Could not find target message in interaction", "target_id", data.TargetID)
+		return respond(ctx, s, i.Interaction, "💩 Could not find message to pin")
+	}
 	m.GuildID = i.GuildID // guildID is missing from message in resolved context
 
-	log := slog.With("guild_id", i.GuildID, "channel_id", i.ChannelID, "message_id", m.ID)
+	log = log.With("message_id", m.ID)
 
 	log.Debug("Starting pin message")
 
@@ -32,10 +56,10 @@ func PinMessageCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	var pinned bool
 	var channels []*discordgo.Channel
 
-	group := errgroup.Group{}
+	group, groupCtx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		var err error
-		pinned, err = isAlreadyPinned(ctx, s, i, m)
+		pinned, err = isAlreadyPinned(groupCtx, s, i, m)
 		if err != nil {
 			log.Error("Could not check if message is already pinned", "error", err)
 		}
@@ -43,7 +67,7 @@ func PinMessageCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	})
 	group.Go(func() error {
 		var err error
-		channels, err = s.GuildChannels(i.GuildID, discordgo.WithContext(ctx))
+		channels, err = s.GuildChannels(i.GuildID, discordgo.WithContext(groupCtx))
 		if err != nil {
 			log.Error("Could not get guild channels", "error", err)
 		}
@@ -73,11 +97,15 @@ func PinMessageCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	log = log.With("target_channel_id", targetChannel.ID)
 
 	// build the rich embed pin message
-	pinMessage := buildPinMessage(sourceChannel, m, i.Member.User)
+	var pinnedBy *discordgo.User
+	if i.Member != nil {
+		pinnedBy = i.Member.User
+	}
+	pin := buildPinMessage(sourceChannel, m, pinnedBy)
 
 	// send the pin message
 	log.Debug("Sending pin message")
-	pin, err := s.ChannelMessageSendComplex(targetChannel.ID, pinMessage, discordgo.WithContext(ctx))
+	sent, err := s.ChannelMessageSendComplex(targetChannel.ID, pin, discordgo.WithContext(ctx))
 	if err != nil {
 		log.Error("Could not send pin message", "error", err)
 
@@ -94,9 +122,9 @@ func PinMessageCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 		log.Error("Could not react to message", "error", err)
 	}
 
-	log.Info("Pinned message", "pin_message_id", pin.ID)
+	log.Info("Pinned message", "pin_message_id", sent.ID)
 
-	return respond(ctx, s, i.Interaction, "📌 Pinned: "+url(i.GuildID, pin.ChannelID, pin.ID))
+	return respond(ctx, s, i.Interaction, "📌 Pinned: "+url(i.GuildID, sent.ChannelID, sent.ID))
 }
 
 // getSourceChannel returns the channel with the given id. Threads are not included in the guild channels list, so if
@@ -205,19 +233,27 @@ func buildPinMessage(sourceChannel *discordgo.Channel, m *discordgo.Message, pin
 	return pinMessage
 }
 
+// isAlreadyPinned checks whether the bot has already reacted to the message, paging through all users who reacted
 func isAlreadyPinned(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, m *discordgo.Message) (bool, error) {
-	acks, err := s.MessageReactions(m.ChannelID, m.ID, emojiPinned, 0, "", "", discordgo.WithContext(ctx))
-	if err != nil {
-		return false, err
-	}
-
-	for _, ack := range acks {
-		if ack.ID == i.AppID {
-			return true, nil
+	after := ""
+	for {
+		acks, err := s.MessageReactions(m.ChannelID, m.ID, emojiPinned, maxReactionsPage, "", after, discordgo.WithContext(ctx))
+		if err != nil {
+			return false, err
 		}
-	}
 
-	return false, nil
+		for _, ack := range acks {
+			if ack.ID == i.AppID {
+				return true, nil
+			}
+		}
+
+		if len(acks) < maxReactionsPage {
+			return false, nil
+		}
+
+		after = acks[len(acks)-1].ID
+	}
 }
 
 // getTargetChannel returns the target pin channel for a given channel #channel in the following order:
@@ -226,30 +262,58 @@ func isAlreadyPinned(ctx context.Context, s *discordgo.Session, i *discordgo.Int
 // #channel (the channel itself)
 // For threads, #channel is the thread's parent channel. The fallback is still the thread itself, as some parent
 // channels (e.g. forums) cannot be posted in directly.
+// A pins channel is skipped if posting there would expose the message to people who cannot see the original.
 func getTargetChannel(channels []*discordgo.Channel, origin *discordgo.Channel) (*discordgo.Channel, error) {
-	name := origin.Name
+	parent := origin
 	if origin.IsThread() {
-		parent := findChannel(channels, origin.ParentID)
+		parent = findChannel(channels, origin.ParentID)
 		if parent == nil {
 			return nil, fmt.Errorf("could not find parent channel with id %s", origin.ParentID)
 		}
-		name = parent.Name
 	}
 
-	// check for #channel-pins first
-	for _, c := range channels {
-		if c.Name == name+"-pins" && c.Type == discordgo.ChannelTypeGuildText {
-			return c, nil
-		}
-	}
-
-	// fallback to general pins channel
-	for _, c := range channels {
-		if c.Name == "pins" && c.Type == discordgo.ChannelTypeGuildText {
+	for _, name := range []string{parent.Name + "-pins", "pins"} {
+		c := findTextChannelByName(channels, name)
+		if c != nil && canPinTo(origin, parent, c) {
 			return c, nil
 		}
 	}
 
 	// use the same channel by default
 	return origin, nil
+}
+
+func findTextChannelByName(channels []*discordgo.Channel, name string) *discordgo.Channel {
+	for _, c := range channels {
+		if c.Name == name && c.Type == discordgo.ChannelTypeGuildText {
+			return c
+		}
+	}
+
+	return nil
+}
+
+// canPinTo reports whether messages from origin (with parent as its parent channel, or itself if it is not a thread)
+// can be pinned to target without leaking them to a wider audience:
+// messages from NSFW channels are only pinned to NSFW channels, and messages from channels hidden from @everyone are
+// only pinned to channels which are also hidden from @everyone.
+func canPinTo(origin, parent, target *discordgo.Channel) bool {
+	if parent.NSFW && !target.NSFW {
+		return false
+	}
+
+	hidden := origin.Type == discordgo.ChannelTypeGuildPrivateThread || isHiddenFromEveryone(parent)
+
+	return !hidden || isHiddenFromEveryone(target)
+}
+
+// isHiddenFromEveryone reports whether the @everyone role (which shares the guild's ID) is denied from viewing c
+func isHiddenFromEveryone(c *discordgo.Channel) bool {
+	for _, o := range c.PermissionOverwrites {
+		if o.Type == discordgo.PermissionOverwriteTypeRole && o.ID == c.GuildID && o.Deny&discordgo.PermissionViewChannel != 0 {
+			return true
+		}
+	}
+
+	return false
 }
