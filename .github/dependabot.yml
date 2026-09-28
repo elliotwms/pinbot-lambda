@@ -16,6 +16,14 @@ updates:
       prefix: "chore(deps)"
     reviewers:
       - elliotwms
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    reviewers:
+      - elliotwms
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
