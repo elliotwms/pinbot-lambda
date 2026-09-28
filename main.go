@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"log/slog"
 	"os"
@@ -25,6 +26,10 @@ func main() {
 	k, err := hex.DecodeString(os.Getenv("DISCORD_BOT_PUBLIC_KEY"))
 	if err != nil {
 		panic(err)
+	}
+	// an empty key disables request verification, and a key of the wrong size panics on verify
+	if len(k) != ed25519.PublicKeySize {
+		panic("DISCORD_BOT_PUBLIC_KEY must be a hex-encoded ed25519 public key")
 	}
 
 	logger := slog.Default().With(slog.String("version", Version))

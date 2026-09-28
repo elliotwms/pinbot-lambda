@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,8 +36,10 @@ type PinStage struct {
 	channel             *discordgo.Channel
 	expectedPinsChannel *discordgo.Channel
 
-	message     *discordgo.Message
+	message *discordgo.Message
+	// messages is appended to by the session's event handlers, so must be accessed while holding mu
 	messages    []*discordgo.Message
+	mu          sync.Mutex
 	pinMessage  *discordgo.Message
 	snowflake   *snowflake.Node
 	interaction *discordgo.Interaction
@@ -56,10 +59,6 @@ func NewPinStage(t *testing.T) (*PinStage, *PinStage, *PinStage) {
 		handler:   e.HandleRequest,
 		snowflake: node,
 	}
-
-	_, cancel := context.WithCancel(context.Background())
-
-	t.Cleanup(cancel)
 
 	return s, s, s
 }
@@ -84,7 +83,7 @@ func (s *PinStage) a_channel_named(name string) *PinStage {
 	// register the last created channel as the expected pins channel
 	s.expectedPinsChannel = c
 
-	s.session.AddHandler(s.handleMessageFor(c.ID))
+	s.t.Cleanup(s.session.AddHandler(s.handleMessageFor(c.ID)))
 
 	return s
 }
@@ -172,6 +171,9 @@ func (s *PinStage) sendInteraction(i *discordgo.InteractionCreate) *PinStage {
 
 func (s *PinStage) a_pin_message_should_be_posted_in_the_last_channel() *PinStage {
 	s.require.Eventually(func() bool {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
 		for _, m := range s.messages {
 			if m.ChannelID != s.expectedPinsChannel.ID {
 				continue
@@ -213,6 +215,9 @@ func (s *PinStage) the_bot_should_add_the_emoji(emoji string) *PinStage {
 func (s *PinStage) handleMessageFor(channelID string) func(*discordgo.Session, *discordgo.MessageCreate) {
 	return func(_ *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.ChannelID == channelID {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+
 			s.messages = append(s.messages, m.Message)
 		}
 	}
@@ -238,6 +243,9 @@ func (s *PinStage) the_bot_should_respond_with_message_containing(m string) *Pin
 func (s *PinStage) an_attachment(filename, contentType string) *PinStage {
 	f, err := os.Open("files/" + filename)
 	s.require.NoError(err)
+	s.t.Cleanup(func() {
+		s.assert.NoError(f.Close())
+	})
 	s.sendMessage.Files = append(s.sendMessage.Files, &discordgo.File{
 		Name:        filename,
 		ContentType: contentType,

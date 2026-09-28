@@ -19,7 +19,7 @@ func New(k ed25519.PublicKey, s sessionprovider.Provider, l *slog.Logger) *bot_l
 			bot_lambda.WithDeferredResponseEnabled(true),
 		).
 		WithSessionProvider(s).
-		WithMessageApplicationCommand("Pin", handlers.PinMessageCommandHandler)
+		WithMessageApplicationCommand("Pin", handlers.NewPinMessageCommandHandler(l))
 
 	return e
 }
