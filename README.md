@@ -30,6 +30,12 @@ Pinbot uses the channel name to decide where it will post. In order of priority 
 3. `#{channel}`, the channel the pin was posted in, so that if you don't want a separate pins channel you can instead 
 search for pins by @pinbot in the channel
 
+Pins from threads use the thread's parent channel to find a pins channel, and fall back to the thread itself.
+
+To avoid leaking messages to a wider audience, Pinbot skips a pins channel if:
+* the message is from an age-restricted (NSFW) channel and the pins channel is not age-restricted, or
+* the message is from a private thread, or a channel hidden from `@everyone`, and the pins channel is not also hidden from `@everyone`
+
 Whenever Pinbot pins a message, or whenever you update the actual channel pins, Pinbot will trigger a reimport of all 
 the channel's pins. You can also trigger this manually with the `/import` command.
 

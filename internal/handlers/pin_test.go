@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -132,6 +133,91 @@ func TestGetTargetChannel(t *testing.T) {
 	}
 }
 
+func TestGetTargetChannel_DoesNotLeakMessages(t *testing.T) {
+	const guildID = "100"
+	text := func(id, name string) *discordgo.Channel {
+		return &discordgo.Channel{ID: id, GuildID: guildID, Name: name, Type: discordgo.ChannelTypeGuildText}
+	}
+	hidden := func(c *discordgo.Channel) *discordgo.Channel {
+		c.PermissionOverwrites = []*discordgo.PermissionOverwrite{{
+			ID:   guildID,
+			Type: discordgo.PermissionOverwriteTypeRole,
+			Deny: discordgo.PermissionViewChannel,
+		}}
+		return c
+	}
+	nsfw := func(c *discordgo.Channel) *discordgo.Channel {
+		c.NSFW = true
+		return c
+	}
+	privateThread := &discordgo.Channel{ID: "10", GuildID: guildID, ParentID: "1", Type: discordgo.ChannelTypeGuildPrivateThread}
+
+	testCases := []struct {
+		name     string
+		channels []*discordgo.Channel
+		origin   *discordgo.Channel
+		expected string
+	}{
+		{
+			name:     "hidden channel does not pin to visible pins channel",
+			channels: []*discordgo.Channel{hidden(text("1", "test")), text("2", "pins")},
+			origin:   hidden(text("1", "test")),
+			expected: "1",
+		},
+		{
+			name:     "hidden channel pins to hidden pins channel",
+			channels: []*discordgo.Channel{hidden(text("1", "test")), text("2", "pins"), hidden(text("3", "test-pins"))},
+			origin:   hidden(text("1", "test")),
+			expected: "3",
+		},
+		{
+			name:     "hidden channel skips visible specific pins channel for hidden general pins channel",
+			channels: []*discordgo.Channel{hidden(text("1", "test")), hidden(text("2", "pins")), text("3", "test-pins")},
+			origin:   hidden(text("1", "test")),
+			expected: "2",
+		},
+		{
+			name:     "visible channel pins to hidden pins channel",
+			channels: []*discordgo.Channel{text("1", "test"), hidden(text("2", "pins"))},
+			origin:   text("1", "test"),
+			expected: "2",
+		},
+		{
+			name:     "private thread does not pin to visible pins channel",
+			channels: []*discordgo.Channel{text("1", "test"), text("2", "pins")},
+			origin:   privateThread,
+			expected: "10",
+		},
+		{
+			name:     "thread in hidden channel does not pin to visible pins channel",
+			channels: []*discordgo.Channel{hidden(text("1", "test")), text("2", "pins")},
+			origin:   &discordgo.Channel{ID: "10", GuildID: guildID, ParentID: "1", Type: discordgo.ChannelTypeGuildPublicThread},
+			expected: "10",
+		},
+		{
+			name:     "nsfw channel does not pin to sfw pins channel",
+			channels: []*discordgo.Channel{nsfw(text("1", "test")), text("2", "pins")},
+			origin:   nsfw(text("1", "test")),
+			expected: "1",
+		},
+		{
+			name:     "nsfw channel pins to nsfw pins channel",
+			channels: []*discordgo.Channel{nsfw(text("1", "test")), nsfw(text("2", "pins"))},
+			origin:   nsfw(text("1", "test")),
+			expected: "2",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := getTargetChannel(tc.channels, tc.origin)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, c.ID)
+		})
+	}
+}
+
 func TestGetTargetChannel_ThreadWithUnknownParent(t *testing.T) {
 	thread := &discordgo.Channel{ID: "10", ParentID: "1", Type: discordgo.ChannelTypeGuildPublicThread}
 
@@ -164,4 +250,35 @@ func TestGetSourceChannel_FetchesChannelsMissingFromList(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "10", c.ID)
 	assert.True(t, c.IsThread())
+}
+
+func TestIsAlreadyPinned_PagesThroughReactions(t *testing.T) {
+	const appID = "999"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// the first page is full of other users, and the bot is on the second page
+		var users []*discordgo.User
+		if r.URL.Query().Get("after") == "" {
+			for i := range maxReactionsPage {
+				users = append(users, &discordgo.User{ID: strconv.Itoa(i + 1)})
+			}
+		} else {
+			users = append(users, &discordgo.User{ID: appID})
+		}
+		_ = json.NewEncoder(w).Encode(users)
+	}))
+	t.Cleanup(server.Close)
+
+	endpoint := discordgo.EndpointChannels
+	discordgo.EndpointChannels = server.URL + "/channels/"
+	t.Cleanup(func() { discordgo.EndpointChannels = endpoint })
+
+	s, err := discordgo.New("Bot token")
+	require.NoError(t, err)
+
+	i := &discordgo.InteractionCreate{Interaction: &discordgo.Interaction{AppID: appID}}
+	pinned, err := isAlreadyPinned(context.Background(), s, i, testMessage())
+
+	require.NoError(t, err)
+	assert.True(t, pinned)
 }
