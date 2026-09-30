@@ -65,6 +65,14 @@ Pinbot requires the following permissions to function in any channels you intend
 | `PARAM_DISCORD_TOKEN`    | Name of the SSM Parameter Store parameter holding the bot token. It is read via the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html) | `true`   |
 | `DEBUG`                  | Set to `true` to enable debug logs                                                                                                                                                           | `false`  |
 
+### Deployment
+
+Infrastructure is managed in [infra-pinbot](https://github.com/elliotwms/infra-pinbot). There are three stacks: `dev` (local development only), `test` and `prod`.
+
+Every release created by the Release workflow is built once and deployed by the Deploy workflow: first to `test`, then to `prod` after approval. To redeploy an existing tag (for example, to roll back), run the Deploy workflow manually with that tag.
+
+Deployment uses the `test` and `prod` GitHub environments. Each has an `AWS_ROLE_ARN` variable set to the `deploy_role_arn` output of the matching infra-pinbot workspace, and `prod` requires a reviewer.
+
 ## Testing
 
 `/tests` contains a suite of integration tests which run against [fakediscord](https://github.com/elliotwms/fakediscord) in a test guild. Simply run `docker compose up` from the root of the repo and execute the tests.
