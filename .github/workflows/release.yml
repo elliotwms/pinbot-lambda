@@ -12,6 +12,7 @@ jobs:
     needs: test
     outputs:
       tag: ${{ steps.changelog.outputs.tag }}
+      skipped: ${{ steps.changelog.outputs.skipped }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -32,3 +33,13 @@ jobs:
           tag_name: ${{ steps.changelog.outputs.tag }}
           release_name: ${{ steps.changelog.outputs.tag }}
           body: ${{ steps.changelog.outputs.clean_changelog }}
+  deploy:
+    name: Deploy
+    needs: release
+    if: ${{ needs.release.outputs.skipped == 'false' }}
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      ref: ${{ needs.release.outputs.tag }}
