@@ -19,8 +19,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/elliotwms/bot v0.4.18 h1:eGeRN4qKjI6O/v3ISkGQVlKhhW6h9mhlyr0F59VD6q0=
 github.com/elliotwms/bot v0.4.18/go.mod h1:eZVeBcdAIksrVL0eONMShprI6/AHoSkGso219K/JG+k=
-github.com/elliotwms/bot-lambda v0.1.5 h1:fK4HWd7eHF7H9i0x2h9UFZm3D3d1xoSPyp/yM/efTnY=
-github.com/elliotwms/bot-lambda v0.1.5/go.mod h1:6F46HtV0eCSNRlHgoMdUJKu5NT8nfUOSvOJ5dC6GDJs=
+github.com/elliotwms/bot-lambda v0.2.0 h1:MuygIApXy6/hnoPUHrWXd9yAMwNisTHMf3Olo6Kf4S8=
+github.com/elliotwms/bot-lambda v0.2.0/go.mod h1:6F46HtV0eCSNRlHgoMdUJKu5NT8nfUOSvOJ5dC6GDJs=
 github.com/elliotwms/fakediscord v0.20.4 h1:KRGMYUvsinP7DHP0+2kZK1xK+WOEHsQ31IwJF2ZnOH0=
 github.com/elliotwms/fakediscord v0.20.4/go.mod h1:mqUXzv7sPF3HshqlaCH6oQVAp+I7oZXsA2rzESQEXxc=
 github.com/fatih/color v1.16.0 h1:zmkK9Ngbjj+K0yRhTVONQh1p/HknKYSlNT+vZCzyokM=
