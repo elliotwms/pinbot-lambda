@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/elliotwms/bot/interactions/router"
@@ -19,6 +20,9 @@ const (
 
 	// maxEmbeds is the maximum number of embeds Discord accepts in a single message
 	maxEmbeds = 10
+
+	// maxEmbedsLength is the maximum number of characters Discord accepts across all embeds in a single message
+	maxEmbedsLength = 6000
 
 	// maxReactionsPage is the maximum number of users Discord returns per page of reactions
 	maxReactionsPage = 100
@@ -75,7 +79,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 	})
 
 	if err := group.Wait(); err != nil {
-		return respond(ctx, s, i.Interaction, "💩 Temporary error, please retry")
+		return respondError(ctx, s, i.Interaction, err)
 	}
 
 	if pinned {
@@ -85,7 +89,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 	sourceChannel, err := getSourceChannel(ctx, s, channels, m.ChannelID)
 	if err != nil {
 		log.Error("Could not determine source channel", "error", err)
-		return respond(ctx, s, i.Interaction, "💩 Temporary error, please retry")
+		return respondError(ctx, s, i.Interaction, err)
 	}
 
 	// determine the target pin channel for the message
@@ -109,8 +113,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 	if err != nil {
 		log.Error("Could not send pin message", "error", err)
 
-		var restErr *discordgo.RESTError
-		if errors.As(err, &restErr) && restErr.Response != nil && restErr.Response.StatusCode == http.StatusForbidden {
+		if isForbidden(err) {
 			return respond(ctx, s, i.Interaction, "🙅 Could not send pin message. Please ensure bot has permission to post in "+targetChannel.Mention())
 		}
 
@@ -153,6 +156,21 @@ func respond(ctx context.Context, s *discordgo.Session, i *discordgo.Interaction
 	}, discordgo.WithContext(ctx))
 
 	return err
+}
+
+// respondError responds to a failed Discord API call. Permission errors won't be fixed by retrying, so they get their own
+// message.
+func respondError(ctx context.Context, s *discordgo.Session, i *discordgo.Interaction, err error) error {
+	if isForbidden(err) {
+		return respond(ctx, s, i, "🙅 Could not read this channel. Please ensure the bot has permission to view it and read its message history")
+	}
+
+	return respond(ctx, s, i, "💩 Temporary error, please retry")
+}
+
+func isForbidden(err error) bool {
+	var restErr *discordgo.RESTError
+	return errors.As(err, &restErr) && restErr.Response != nil && restErr.Response.StatusCode == http.StatusForbidden
 }
 
 func messageURL(guildID, channelID, messageID string) string {
@@ -225,12 +243,35 @@ func buildPinMessage(sourceChannel *discordgo.Channel, m *discordgo.Message, pin
 	// preserve the existing embeds
 	pinMessage.Embeds = append(pinMessage.Embeds, m.Embeds...)
 
-	// Discord rejects messages with too many embeds, so drop any overflow
+	// Discord rejects messages with too many embeds, or too many characters across them, so drop any overflow. The
+	// first embed is always kept, as it contains the pinned message itself.
 	if len(pinMessage.Embeds) > maxEmbeds {
 		pinMessage.Embeds = pinMessage.Embeds[:maxEmbeds]
 	}
+	for len(pinMessage.Embeds) > 1 && embedsLength(pinMessage.Embeds) > maxEmbedsLength {
+		pinMessage.Embeds = pinMessage.Embeds[:len(pinMessage.Embeds)-1]
+	}
 
 	return pinMessage
+}
+
+// embedsLength returns the number of characters in the embeds, as counted by Discord towards maxEmbedsLength
+func embedsLength(embeds []*discordgo.MessageEmbed) int {
+	n := 0
+	for _, e := range embeds {
+		n += utf8.RuneCountInString(e.Title) + utf8.RuneCountInString(e.Description)
+		for _, f := range e.Fields {
+			n += utf8.RuneCountInString(f.Name) + utf8.RuneCountInString(f.Value)
+		}
+		if e.Footer != nil {
+			n += utf8.RuneCountInString(e.Footer.Text)
+		}
+		if e.Author != nil {
+			n += utf8.RuneCountInString(e.Author.Name)
+		}
+	}
+
+	return n
 }
 
 // isAlreadyPinned checks whether the bot has already reacted to the message, paging through all users who reacted
