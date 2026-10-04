@@ -1,0 +1,89 @@
+name: Deploy
+on:
+  # called by the release workflow for each new release. Releases are created with GITHUB_TOKEN, which doesn't
+  # trigger other workflows, so this can't listen for release events itself
+  workflow_call:
+    inputs:
+      ref:
+        description: Tag to deploy
+        type: string
+        required: true
+  # redeploy an existing tag, e.g. to roll back
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag to deploy
+        type: string
+        required: true
+permissions:
+  contents: read
+  id-token: write
+env:
+  AWS_REGION: eu-west-1
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+          VERSION: ${{ inputs.ref }}
+        run: |
+          go build -tags lambda.norpc -trimpath -ldflags "-s -w -X main.Version=${VERSION}" -o bootstrap .
+          zip -j pinbot.zip bootstrap
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pinbot
+          path: pinbot.zip
+          if-no-files-found: error
+  test:
+    name: Deploy to test
+    needs: build
+    runs-on: ubuntu-latest
+    environment: test
+    # only one deploy per stack at a time; a newer run replaces one that is still waiting
+    concurrency: deploy-test
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pinbot
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Update function code
+        env:
+          FUNCTION: pinbot-test
+        run: |
+          aws lambda update-function-code --function-name "$FUNCTION" --zip-file fileb://pinbot.zip --query 'CodeSha256' --output text
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION"
+  prod:
+    name: Deploy to prod
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    # requires approval, configured on the environment
+    environment: prod
+    concurrency: deploy-prod
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pinbot
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Update function code
+        env:
+          FUNCTION: pinbot-prod
+        run: |
+          aws lambda update-function-code --function-name "$FUNCTION" --zip-file fileb://pinbot.zip --query 'CodeSha256' --output text
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION"
