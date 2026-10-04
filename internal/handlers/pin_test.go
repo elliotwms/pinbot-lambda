@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -291,4 +292,67 @@ func TestBuildPinMessage_AuthorUsesDisplayName(t *testing.T) {
 	pin := buildPinMessage(source, m, nil)
 
 	assert.Equal(t, "Display Name", pin.Embeds[0].Author.Name)
+}
+
+func TestBuildPinMessage_LimitsEmbedsLength(t *testing.T) {
+	source := &discordgo.Channel{ID: "2", GuildID: "1", Name: "test"}
+	m := testMessage()
+	m.Content = strings.Repeat("a", 4000)
+	m.Embeds = []*discordgo.MessageEmbed{
+		{Description: strings.Repeat("b", 1000)},
+		{Description: strings.Repeat("c", 1000)},
+		{Description: strings.Repeat("d", 1000)},
+	}
+
+	pin := buildPinMessage(source, m, nil)
+
+	require.Len(t, pin.Embeds, 2)
+	assert.Equal(t, m.Content, pin.Embeds[0].Description)
+	assert.LessOrEqual(t, embedsLength(pin.Embeds), maxEmbedsLength)
+}
+
+func TestRespondError(t *testing.T) {
+	testCases := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "forbidden",
+			err:      &discordgo.RESTError{Response: &http.Response{StatusCode: http.StatusForbidden}},
+			expected: "🙅 Could not read this channel. Please ensure the bot has permission to view it and read its message history",
+		},
+		{
+			name:     "other error",
+			err:      &discordgo.RESTError{Response: &http.Response{StatusCode: http.StatusInternalServerError}},
+			expected: "💩 Temporary error, please retry",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var content string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var edit discordgo.WebhookEdit
+				_ = json.NewDecoder(r.Body).Decode(&edit)
+				if edit.Content != nil {
+					content = *edit.Content
+				}
+				_ = json.NewEncoder(w).Encode(discordgo.Message{})
+			}))
+			t.Cleanup(server.Close)
+
+			endpoint := discordgo.EndpointWebhooks
+			discordgo.EndpointWebhooks = server.URL + "/webhooks/"
+			t.Cleanup(func() { discordgo.EndpointWebhooks = endpoint })
+
+			s, err := discordgo.New("Bot token")
+			require.NoError(t, err)
+
+			i := &discordgo.Interaction{AppID: "1", Token: "token"}
+			require.NoError(t, respondError(context.Background(), s, i, tc.err))
+
+			assert.Equal(t, tc.expected, content)
+		})
+	}
 }

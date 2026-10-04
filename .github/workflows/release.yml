@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+permissions:
+  contents: read
 jobs:
   test:
     uses: ./.github/workflows/test.yml
@@ -10,6 +12,8 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: write
     outputs:
       tag: ${{ steps.changelog.outputs.tag }}
       skipped: ${{ steps.changelog.outputs.skipped }}
@@ -25,14 +29,12 @@ jobs:
           skip-commit: "true"
           skip-on-empty: "false"
       - name: Create Release
-        uses: actions/create-release@v1
         if: ${{ steps.changelog.outputs.skipped == 'false' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-        with:
-          tag_name: ${{ steps.changelog.outputs.tag }}
-          release_name: ${{ steps.changelog.outputs.tag }}
-          body: ${{ steps.changelog.outputs.clean_changelog }}
+          GH_TOKEN: ${{ secrets.github_token }}
+          TAG: ${{ steps.changelog.outputs.tag }}
+          NOTES: ${{ steps.changelog.outputs.clean_changelog }}
+        run: gh release create "$TAG" --title "$TAG" --notes "$NOTES" --target "$GITHUB_SHA"
   deploy:
     name: Deploy
     needs: release
