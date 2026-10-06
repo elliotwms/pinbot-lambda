@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -16,6 +18,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
 	"github.com/elliotwms/bot-lambda/sessionprovider"
+	"github.com/elliotwms/pinbot/internal/metrics"
 	"github.com/elliotwms/pinbot/internal/pinbot"
 	"github.com/neilotoole/slogt"
 	"github.com/stretchr/testify/assert"
@@ -43,13 +46,16 @@ type PinStage struct {
 	pinMessage  *discordgo.Message
 	snowflake   *snowflake.Node
 	interaction *discordgo.Interaction
+	// metrics holds the metrics recorded by the handler, one JSON line each
+	metrics *bytes.Buffer
 }
 
 func NewPinStage(t *testing.T) (*PinStage, *PinStage, *PinStage) {
 	slog.SetDefault(slogt.New(t))
 
 	node, _ := snowflake.NewNode(0)
-	e := pinbot.New(nil, sessionprovider.Static(session), slog.Default())
+	buf := &bytes.Buffer{}
+	e := pinbot.New(nil, sessionprovider.Static(session), slog.Default(), metrics.New(buf, map[string]string{"Stack": "test"}))
 
 	s := &PinStage{
 		t:         t,
@@ -58,6 +64,7 @@ func NewPinStage(t *testing.T) (*PinStage, *PinStage, *PinStage) {
 		assert:    assert.New(t),
 		handler:   e.HandleRequest,
 		snowflake: node,
+		metrics:   buf,
 	}
 
 	return s, s, s
@@ -320,4 +327,23 @@ func (s *PinStage) the_bot_should_successfully_acknowledge_the_pin() *PinStage {
 	return s.
 		the_bot_should_add_the_emoji("📌").and().
 		the_bot_should_respond_with_message_containing("📌 Pinned")
+}
+
+func (s *PinStage) a_pin_metric_should_be_recorded_with_outcome(outcome string) *PinStage {
+	var outcomes []string
+	scanner := bufio.NewScanner(bytes.NewReader(s.metrics.Bytes()))
+	for scanner.Scan() {
+		var line struct {
+			Pins    *float64
+			Outcome string
+		}
+		s.require.NoError(json.Unmarshal(scanner.Bytes(), &line))
+		if line.Pins != nil {
+			outcomes = append(outcomes, line.Outcome)
+		}
+	}
+
+	s.assert.Equal([]string{outcome}, outcomes)
+
+	return s
 }

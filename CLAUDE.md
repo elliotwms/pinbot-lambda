@@ -4,8 +4,13 @@ A Discord bot with one message command, "Pin". It runs as an AWS Lambda function
 
 ## Layout
 
-- `main.go`: Lambda entrypoint. Reads `DISCORD_BOT_PUBLIC_KEY`, `PARAM_DISCORD_TOKEN` and `DEBUG` from the environment. `Version` is set with `-ldflags` at build time.
+- `main.go`: Lambda entrypoint. Reads `DISCORD_BOT_PUBLIC_KEY`, `PARAM_DISCORD_TOKEN`, `STACK` and `DEBUG` from the environment, and logs JSON. `Version` is set with `-ldflags` at build time.
 - `internal/pinbot`: wires up the [bot-lambda](https://github.com/elliotwms/bot-lambda) endpoint. It sends the deferred response, verifies the ed25519 signature and gets the bot session from Parameter Store.
+  - The endpoint's handler is `HandleInvocation`, which takes both interactions from the function URL and tasks invoked directly: `{"task":"register_commands"}` and `{"task":"report_metrics"}`.
+- `internal/metrics`: records CloudWatch metrics in the embedded metric format, as JSON log lines in namespace `Pinbot` with a `Stack` dimension.
+  - `Pins` has an `Outcome` dimension.
+  - `Guilds` and `UserInstalls` are recorded hourly by `report_metrics`.
+  - Keep dimensions low-cardinality; IDs such as `guild_id` go in properties.
 - `internal/handlers/pin.go`: the Pin command, where all the bot's logic lives.
 - `internal/handlers/pin_test.go`: unit tests. HTTP calls are faked by swapping `discordgo.Endpoint*` for an `httptest` server.
 - `tests/`: integration tests against [fakediscord](https://github.com/elliotwms/fakediscord). They're written as given/when/then stages in `pin_stage_test.go`.
@@ -33,7 +38,7 @@ Build the Lambda as CI does: `GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ta
 
 - Commit messages and PR titles use [Conventional Commits](https://www.conventionalcommits.org). Every merge to `master` runs `release.yml`, which works out the next version from them, creates a GitHub release and deploys it. PRs are squash-merged, so the PR title becomes the commit message.
 - Dependabot patch and minor updates are approved and auto-merged by `dependabot_reviewer.yml`, using a GitHub App token whose credentials come from [elliotwms/infra](https://github.com/elliotwms/infra).
-- The `Pin` command is registered with Discord separately. It isn't created by this code.
+- The `Pin` command's definition is `handlers.PinCommand`. `deploy.yml` registers it after each deploy by invoking the function with the `register_commands` task, which overwrites the app's global commands. Commands not defined in code are deleted.
 
 ## Deployment
 

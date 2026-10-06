@@ -63,6 +63,7 @@ Pinbot requires the following permissions to function in any channels you intend
 |--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
 | `DISCORD_BOT_PUBLIC_KEY` | Hex-encoded public key from the Discord developer portal, used to verify interaction requests                                                                                                | `true`   |
 | `PARAM_DISCORD_TOKEN`    | Name of the SSM Parameter Store parameter holding the bot token. It is read via the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html) | `true`   |
+| `STACK`                  | Name of the stack (`dev`, `test` or `prod`), added to logs and as the `Stack` metric dimension. Defaults to `local`                                                                          | `false`  |
 | `DEBUG`                  | Set to `true` to enable debug logs                                                                                                                                                           | `false`  |
 
 ### Deployment
@@ -72,6 +73,20 @@ Infrastructure is managed in [infra-pinbot](https://github.com/elliotwms/infra-p
 Every release created by the Release workflow is built once and deployed by the Deploy workflow: first to `test`, then to `prod` after approval. To redeploy an existing tag (for example, to roll back), run the Deploy workflow manually with that tag.
 
 Deployment uses the `test` and `prod` GitHub environments. Each has an `AWS_ROLE_ARN` variable set to the `deploy_role_arn` output of the matching infra-pinbot workspace, and `prod` requires a reviewer.
+
+After deploying, the workflow registers the bot's commands with Discord by invoking the function with `{"task":"register_commands"}`. The command definitions live in code (`handlers.PinCommand`), and registering overwrites the application's global commands.
+
+### Monitoring
+
+Pinbot logs JSON and records CloudWatch metrics in the `Pinbot` namespace, with a `Stack` dimension:
+
+| Metric         | Description                                                                                                  |
+|----------------|--------------------------------------------------------------------------------------------------------------|
+| `Pins`         | One per use of the Pin command, with an `Outcome` dimension: `pinned`, `already_pinned`, `no_permission`, `invalid` or `error` |
+| `Guilds`       | Approximate number of servers the bot is in, recorded hourly                                                 |
+| `UserInstalls` | Approximate number of user installs, recorded hourly                                                         |
+
+Each `Pins` log line also has `guild_id` and `channel_id`, so you can query, for example, the number of active servers with Logs Insights. The alarms, the hourly schedule and a dashboard are defined in [infra-pinbot](https://github.com/elliotwms/infra-pinbot).
 
 ## Testing
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/elliotwms/bot/interactions/router"
+	"github.com/elliotwms/pinbot/internal/metrics"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -28,18 +29,44 @@ const (
 	maxReactionsPage = 100
 )
 
+// Outcome is the result of a pin, recorded as the Outcome dimension of the Pins metric
+type Outcome string
+
+const (
+	OutcomePinned        Outcome = "pinned"
+	OutcomeAlreadyPinned Outcome = "already_pinned"
+	OutcomeNoPermission  Outcome = "no_permission"
+	OutcomeInvalid       Outcome = "invalid"
+	OutcomeError         Outcome = "error"
+)
+
+// PinCommand is the definition of the "Pin" message command. It's only available in servers, as Pinbot posts pins to
+// the server's channels.
+var PinCommand = &discordgo.ApplicationCommand{
+	Name:     "Pin",
+	Type:     discordgo.MessageApplicationCommand,
+	Contexts: &[]discordgo.InteractionContextType{discordgo.InteractionContextGuild},
+}
+
 // NewPinMessageCommandHandler returns the handler for the "Pin" message command
-func NewPinMessageCommandHandler(l *slog.Logger) router.ApplicationCommandHandler {
+func NewPinMessageCommandHandler(l *slog.Logger, m *metrics.Metrics) router.ApplicationCommandHandler {
 	return func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) error {
-		return pinMessage(ctx, l, s, i, data)
+		outcome, err := pinMessage(ctx, l, s, i, data)
+
+		m.Record("Pins", 1, metrics.UnitCount,
+			map[string]string{"Outcome": string(outcome)},
+			map[string]any{"guild_id": i.GuildID, "channel_id": i.ChannelID},
+		)
+
+		return err
 	}
 }
 
-func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) error {
+func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *discordgo.InteractionCreate, data discordgo.ApplicationCommandInteractionData) (Outcome, error) {
 	log = log.With("guild_id", i.GuildID, "channel_id", i.ChannelID)
 
 	if i.GuildID == "" {
-		return respond(ctx, s, i.Interaction, "🙅 Messages can only be pinned in servers")
+		return OutcomeInvalid, respond(ctx, s, i.Interaction, "🙅 Messages can only be pinned in servers")
 	}
 
 	var m *discordgo.Message
@@ -48,7 +75,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 	}
 	if m == nil {
 		log.Error("Could not find target message in interaction", "target_id", data.TargetID)
-		return respond(ctx, s, i.Interaction, "💩 Could not find message to pin")
+		return OutcomeInvalid, respond(ctx, s, i.Interaction, "💩 Could not find message to pin")
 	}
 	m.GuildID = i.GuildID // guildID is missing from message in resolved context
 
@@ -79,24 +106,24 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 	})
 
 	if err := group.Wait(); err != nil {
-		return respondError(ctx, s, i.Interaction, err)
+		return errorOutcome(err), respondError(ctx, s, i.Interaction, err)
 	}
 
 	if pinned {
-		return respond(ctx, s, i.Interaction, "🔄 Message already pinned")
+		return OutcomeAlreadyPinned, respond(ctx, s, i.Interaction, "🔄 Message already pinned")
 	}
 
 	sourceChannel, err := getSourceChannel(ctx, s, channels, m.ChannelID)
 	if err != nil {
 		log.Error("Could not determine source channel", "error", err)
-		return respondError(ctx, s, i.Interaction, err)
+		return errorOutcome(err), respondError(ctx, s, i.Interaction, err)
 	}
 
 	// determine the target pin channel for the message
 	targetChannel, err := getTargetChannel(channels, sourceChannel)
 	if err != nil {
 		log.Error("Could not determine target channel", "error", err)
-		return respond(ctx, s, i.Interaction, "💩 Temporary error, please retry")
+		return OutcomeError, respond(ctx, s, i.Interaction, "💩 Temporary error, please retry")
 	}
 	log = log.With("target_channel_id", targetChannel.ID)
 
@@ -114,10 +141,10 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 		log.Error("Could not send pin message", "error", err)
 
 		if isForbidden(err) {
-			return respond(ctx, s, i.Interaction, "🙅 Could not send pin message. Please ensure bot has permission to post in "+targetChannel.Mention())
+			return OutcomeNoPermission, respond(ctx, s, i.Interaction, "🙅 Could not send pin message. Please ensure bot has permission to post in "+targetChannel.Mention())
 		}
 
-		return respond(ctx, s, i.Interaction, "💩 Could not send pin message")
+		return OutcomeError, respond(ctx, s, i.Interaction, "💩 Could not send pin message")
 	}
 
 	// mark the message as done
@@ -127,7 +154,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 
 	log.Info("Pinned message", "pin_message_id", sent.ID)
 
-	return respond(ctx, s, i.Interaction, "📌 Pinned: "+messageURL(i.GuildID, sent.ChannelID, sent.ID))
+	return OutcomePinned, respond(ctx, s, i.Interaction, "📌 Pinned: "+messageURL(i.GuildID, sent.ChannelID, sent.ID))
 }
 
 // getSourceChannel returns the channel with the given id. Threads are not included in the guild channels list, so if
@@ -166,6 +193,14 @@ func respondError(ctx context.Context, s *discordgo.Session, i *discordgo.Intera
 	}
 
 	return respond(ctx, s, i, "💩 Temporary error, please retry")
+}
+
+func errorOutcome(err error) Outcome {
+	if isForbidden(err) {
+		return OutcomeNoPermission
+	}
+
+	return OutcomeError
 }
 
 func isForbidden(err error) bool {

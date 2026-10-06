@@ -66,6 +66,18 @@ jobs:
         run: |
           aws lambda update-function-code --function-name "$FUNCTION" --zip-file fileb://pinbot.zip --query 'CodeSha256' --output text
           aws lambda wait function-updated-v2 --function-name "$FUNCTION"
+      - name: Register commands
+        env:
+          FUNCTION: pinbot-test
+        # the function registers its own commands with Discord, using the bot token it already has
+        run: |
+          aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
+            --payload '{"task":"register_commands"}' response.json > invoke.json
+          cat response.json
+          if jq -e '.FunctionError' invoke.json > /dev/null; then
+            echo "::error::register_commands failed: $(cat response.json)"
+            exit 1
+          fi
   prod:
     name: Deploy to prod
     needs: [build, test]
@@ -87,3 +99,15 @@ jobs:
         run: |
           aws lambda update-function-code --function-name "$FUNCTION" --zip-file fileb://pinbot.zip --query 'CodeSha256' --output text
           aws lambda wait function-updated-v2 --function-name "$FUNCTION"
+      - name: Register commands
+        env:
+          FUNCTION: pinbot-prod
+        # the function registers its own commands with Discord, using the bot token it already has
+        run: |
+          aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
+            --payload '{"task":"register_commands"}' response.json > invoke.json
+          cat response.json
+          if jq -e '.FunctionError' invoke.json > /dev/null; then
+            echo "::error::register_commands failed: $(cat response.json)"
+            exit 1
+          fi
