@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -353,6 +356,43 @@ func TestRespondError(t *testing.T) {
 			require.NoError(t, respondError(context.Background(), s, i, tc.err))
 
 			assert.Equal(t, tc.expected, content)
+		})
+	}
+}
+
+func TestLogAPIError(t *testing.T) {
+	testCases := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "forbidden is a warning",
+			err:      &discordgo.RESTError{Response: &http.Response{StatusCode: http.StatusForbidden}},
+			expected: "WARN",
+		},
+		{
+			name:     "other errors are errors",
+			err:      &discordgo.RESTError{Response: &http.Response{StatusCode: http.StatusInternalServerError}},
+			expected: "ERROR",
+		},
+		{
+			name:     "non-API errors are errors",
+			err:      errors.New("boom"),
+			expected: "ERROR",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			log := slog.New(slog.NewJSONHandler(&buf, nil))
+
+			logAPIError(log, "Could not send pin message", tc.err)
+
+			var line struct{ Level string }
+			require.NoError(t, json.Unmarshal(buf.Bytes(), &line))
+			assert.Equal(t, tc.expected, line.Level)
 		})
 	}
 }

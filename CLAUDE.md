@@ -33,7 +33,7 @@ Build the Lambda as CI does: `GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ta
 - **Don't leak pins** (`canPinTo`). Never pin from an NSFW channel to a non-NSFW one. Never pin from a private thread, or a channel hidden from `@everyone`, to a channel that isn't hidden too. Any change to channel selection needs a matching case in `TestGetTargetChannel_DoesNotLeakMessages`.
 - **Discord limits:** at most 10 embeds per message (`maxEmbeds`) and 6000 characters across them (`maxEmbedsLength`). The first embed (the pinned message itself) is always kept.
 - **Duplicate check:** a message counts as already pinned if the bot has reacted with 📌. `isAlreadyPinned` pages through every reaction, 100 users at a time.
-- **Errors to the user:** reply through `respond`/`respondError`, which edit the deferred, ephemeral response. A 403 means a permissions problem, so tell the user that rather than asking them to retry.
+- **Errors to the user:** reply through `respond`/`respondError`, which edit the deferred, ephemeral response. A 403 means a permissions problem, so tell the user that rather than asking them to retry. Log failed Discord calls with `logAPIError`, which logs 403s as warnings: they're the server's permissions to fix, and `ERROR` lines fire the logged-errors alarm.
 
 ## Conventions
 

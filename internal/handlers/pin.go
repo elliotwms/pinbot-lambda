@@ -92,7 +92,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 		var err error
 		pinned, err = isAlreadyPinned(groupCtx, s, i, m)
 		if err != nil {
-			log.Error("Could not check if message is already pinned", "error", err)
+			logAPIError(log, "Could not check if message is already pinned", err)
 		}
 		return err
 	})
@@ -100,7 +100,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 		var err error
 		channels, err = s.GuildChannels(i.GuildID, discordgo.WithContext(groupCtx))
 		if err != nil {
-			log.Error("Could not get guild channels", "error", err)
+			logAPIError(log, "Could not get guild channels", err)
 		}
 		return err
 	})
@@ -115,7 +115,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 
 	sourceChannel, err := getSourceChannel(ctx, s, channels, m.ChannelID)
 	if err != nil {
-		log.Error("Could not determine source channel", "error", err)
+		logAPIError(log, "Could not determine source channel", err)
 		return errorOutcome(err), respondError(ctx, s, i.Interaction, err)
 	}
 
@@ -138,7 +138,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 	log.Debug("Sending pin message")
 	sent, err := s.ChannelMessageSendComplex(targetChannel.ID, pin, discordgo.WithContext(ctx))
 	if err != nil {
-		log.Error("Could not send pin message", "error", err)
+		logAPIError(log, "Could not send pin message", err)
 
 		if isForbidden(err) {
 			return OutcomeNoPermission, respond(ctx, s, i.Interaction, "🙅 Could not send pin message. Please ensure bot has permission to post in "+targetChannel.Mention())
@@ -149,7 +149,7 @@ func pinMessage(ctx context.Context, log *slog.Logger, s *discordgo.Session, i *
 
 	// mark the message as done
 	if err := s.MessageReactionAdd(m.ChannelID, m.ID, emojiPinned, discordgo.WithContext(ctx)); err != nil {
-		log.Error("Could not react to message", "error", err)
+		logAPIError(log, "Could not react to message", err)
 	}
 
 	log.Info("Pinned message", "pin_message_id", sent.ID)
@@ -193,6 +193,18 @@ func respondError(ctx context.Context, s *discordgo.Session, i *discordgo.Intera
 	}
 
 	return respond(ctx, s, i, "💩 Temporary error, please retry")
+}
+
+// logAPIError logs a failed Discord API call. A 403 means the server hasn't given Pinbot the permissions it needs, which
+// is the server's to fix and is already reported to the user, so it's logged as a warning rather than an error, which
+// would fire the logged-errors alarm.
+func logAPIError(log *slog.Logger, msg string, err error) {
+	level := slog.LevelError
+	if isForbidden(err) {
+		level = slog.LevelWarn
+	}
+
+	log.Log(context.Background(), level, msg, "error", err)
 }
 
 func errorOutcome(err error) Outcome {
