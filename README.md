@@ -42,7 +42,49 @@ Don't forget that Pinbot needs [permission](#permissions) to see and post in the
 
 ### How does it _really_ work? Like, under the hood
 
-Pinbot is deployed as an AWS Lambda function
+Pinbot is an AWS Lambda function behind a public [function URL](https://docs.aws.amazon.com/lambda/latest/dg/urls-configuration.html), which Discord sends [interactions](https://discord.com/developers/docs/interactions/overview) to. It's built on [bot-lambda](https://github.com/elliotwms/bot-lambda), and its infrastructure is in [infra-pinbot](https://github.com/elliotwms/infra-pinbot).
+
+```mermaid
+flowchart LR
+    user(["Discord user"]) -- "Apps → Pin" --> discord["Discord"]
+    discord -- "signed interaction" --> url["Function URL"]
+    url --> fn["pinbot-{stack}<br/>Lambda"]
+    fn -- "bot token" --> ssm[("Parameter Store")]
+    fn -- "pin, react, reply" --> discord
+    fn -- "JSON logs and<br/>EMF metrics" --> cw[("CloudWatch")]
+    schedule["EventBridge<br/>hourly"] -- "report_metrics task" --> fn
+    deploy["GitHub Actions<br/>deploy"] -- "register_commands task" --> fn
+```
+
+When someone uses the Pin command:
+
+```mermaid
+sequenceDiagram
+    participant D as Discord
+    participant P as Pinbot
+    participant S as Parameter Store
+    D->>P: Interaction, via the function URL
+    P->>P: Verify the ed25519 signature
+    P->>D: Deferred ephemeral response ("Pinbot is thinking…")
+    P->>S: Get the bot token (cached between invocations)
+    par
+        P->>D: Has Pinbot already reacted 📌?
+    and
+        P->>D: List the server's channels
+    end
+    P->>P: Choose the pins channel, without leaking the message
+    P->>D: Post the pin message
+    P->>D: React 📌 to the original message
+    P->>D: Edit the response with a link to the pin
+    P->>P: Record the Pins metric
+```
+
+Pinbot also handles **tasks**: invocations that come from AWS rather than Discord, with a payload like `{"task":"register_commands"}`. Only callers allowed to invoke the function directly can run them; requests through the function URL are never treated as tasks.
+
+| Task                | Run by                                       | What it does                                                         |
+|---------------------|----------------------------------------------|----------------------------------------------------------------------|
+| `register_commands` | The Deploy workflow, after each deploy        | Registers the commands defined in code (`handlers.PinCommand`) with Discord |
+| `report_metrics`    | An hourly EventBridge rule (infra-pinbot)     | Records the `Guilds` and `UserInstalls` metrics from Discord's approximate counts |
 
 #### Permissions
 
@@ -71,6 +113,15 @@ Pinbot requires the following permissions to function in any channels you intend
 Infrastructure is managed in [infra-pinbot](https://github.com/elliotwms/infra-pinbot). There are three stacks: `dev` (local development only), `test` and `prod`.
 
 Every release created by the Release workflow is built once and deployed by the Deploy workflow: first to `test`, then to `prod` after approval. To redeploy an existing tag (for example, to roll back), run the Deploy workflow manually with that tag.
+
+```mermaid
+flowchart LR
+    merge["Merge to master"] --> release["Release workflow<br/>tests, then a release<br/>from the commit messages"]
+    release --> build["Deploy workflow<br/>build once"]
+    build --> test["test<br/>update code,<br/>register commands"]
+    test --> approve{"Approval"}
+    approve --> prod["prod<br/>update code,<br/>register commands"]
+```
 
 Deployment uses the `test` and `prod` GitHub environments. Each has an `AWS_ROLE_ARN` variable set to the `deploy_role_arn` output of the matching infra-pinbot workspace, and `prod` requires a reviewer.
 
