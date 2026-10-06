@@ -4,13 +4,14 @@ A Discord bot with one message command, "Pin". It runs as an AWS Lambda function
 
 ## Layout
 
-- `main.go`: Lambda entrypoint. Reads `DISCORD_BOT_PUBLIC_KEY`, `PARAM_DISCORD_TOKEN`, `STACK` and `DEBUG` from the environment, and logs JSON. `Version` is set with `-ldflags` at build time.
+- `main.go`: Lambda entrypoint. Reads `DISCORD_BOT_PUBLIC_KEY`, `PARAM_DISCORD_TOKEN`, `STACK`, `DEBUG` and `TRACING_ENABLED` from the environment, and logs JSON. `Version` is set with `-ldflags` at build time.
 - `internal/pinbot`: wires up the [bot-lambda](https://github.com/elliotwms/bot-lambda) endpoint. It sends the deferred response, verifies the ed25519 signature and gets the bot session from Parameter Store.
   - The endpoint's handler is `HandleInvocation`, which takes both interactions from the function URL and tasks invoked directly: `{"task":"register_commands"}` and `{"task":"report_metrics"}`.
 - `internal/metrics`: records CloudWatch metrics in the embedded metric format, as JSON log lines in namespace `Pinbot` with a `Stack` dimension.
   - `Pins` has an `Outcome` dimension.
   - `Guilds` and `UserInstalls` are recorded hourly by `report_metrics`.
   - Keep dimensions low-cardinality; IDs such as `guild_id` go in properties.
+- `internal/tracing`: when `TRACING_ENABLED=true`, configures the OpenTelemetry SDK to export bot-lambda's spans over OTLP/HTTP to the ADOT collector layer, which sends them to X-Ray. Don't set it without the layer: each invocation would wait on a failed export.
 - `internal/handlers/pin.go`: the Pin command, where all the bot's logic lives.
 - `internal/handlers/pin_test.go`: unit tests. HTTP calls are faked by swapping `discordgo.Endpoint*` for an `httptest` server.
 - `tests/`: integration tests against [fakediscord](https://github.com/elliotwms/fakediscord). They're written as given/when/then stages in `pin_stage_test.go`.

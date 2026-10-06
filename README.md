@@ -65,6 +65,7 @@ Pinbot requires the following permissions to function in any channels you intend
 | `PARAM_DISCORD_TOKEN`    | Name of the SSM Parameter Store parameter holding the bot token. It is read via the [AWS Parameters and Secrets Lambda Extension](https://docs.aws.amazon.com/systems-manager/latest/userguide/ps-integration-lambda-extensions.html) | `true`   |
 | `STACK`                  | Name of the stack (`dev`, `test` or `prod`), added to logs and as the `Stack` metric dimension. Defaults to `local`                                                                          | `false`  |
 | `DEBUG`                  | Set to `true` to enable debug logs                                                                                                                                                           | `false`  |
+| `TRACING_ENABLED`        | Set to `true` to send OpenTelemetry traces to X-Ray. Requires the [ADOT collector layer](https://aws-otel.github.io/docs/getting-started/lambda/lambda-go), which infra-pinbot adds when tracing is enabled | `false`  |
 
 ### Deployment
 
