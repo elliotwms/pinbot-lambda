@@ -16,7 +16,8 @@ func TestPin(t *testing.T) {
 
 	then.
 		a_pin_message_should_be_posted_in_the_last_channel().and().
-		the_bot_should_successfully_acknowledge_the_pin()
+		the_bot_should_successfully_acknowledge_the_pin().and().
+		a_pin_metric_should_be_recorded_with_outcome("pinned")
 }
 
 func TestPinGeneralPinsChannel(t *testing.T) {
@@ -64,7 +65,8 @@ func TestPinAlreadyPinned(t *testing.T) {
 		the_pin_command_is_sent_for_the_message()
 
 	then.
-		the_bot_should_respond_with_message_containing("🔄 Message already pinned")
+		the_bot_should_respond_with_message_containing("🔄 Message already pinned").and().
+		a_pin_metric_should_be_recorded_with_outcome("already_pinned")
 }
 
 func TestPinWithImage(t *testing.T) {
