@@ -26,6 +26,9 @@ jobs:
         uses: TriPSs/conventional-changelog-action@v6
         with:
           github-token: ${{ secrets.github_token }}
+          # the default angular preset doesn't recognise "!" in a commit header (e.g. "feat!:"), so breaking changes
+          # were released as patches. conventionalcommits follows the Conventional Commits spec, which does
+          preset: conventionalcommits
           skip-commit: "true"
           skip-on-empty: "false"
       - name: Create Release
