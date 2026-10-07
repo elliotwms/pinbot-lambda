@@ -52,6 +52,7 @@ flowchart LR
     fn -- "bot token" --> ssm[("Parameter Store")]
     fn -- "pin, react, reply" --> discord
     fn -- "JSON logs and<br/>EMF metrics" --> cw[("CloudWatch")]
+    fn -. "traces, via the ADOT<br/>collector layer (optional)" .-> xray[("X-Ray")]
     schedule["EventBridge<br/>hourly"] -- "report_metrics task" --> fn
     deploy["GitHub Actions<br/>deploy"] -- "register_commands task" --> fn
 ```
