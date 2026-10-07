@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"log/slog"
@@ -11,6 +12,8 @@ import (
 	"github.com/elliotwms/bot-lambda/sessionprovider"
 	"github.com/elliotwms/pinbot/internal/metrics"
 	"github.com/elliotwms/pinbot/internal/pinbot"
+	"github.com/elliotwms/pinbot/internal/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
 )
 
 // Version describes the build version
@@ -49,5 +52,17 @@ func main() {
 	h := pinbot.New(k, src, logger, m)
 
 	// HandleInvocation handles both interactions from the function URL and tasks, such as registering commands
-	lambda.StartWithOptions(h.HandleInvocation)
+	var handler any = h.HandleInvocation
+
+	// tracing needs the ADOT collector layer, which infra-pinbot adds when tracing is enabled
+	if strings.ToLower(os.Getenv("TRACING_ENABLED")) == "true" {
+		opts, err := tracing.Setup(context.Background())
+		if err != nil {
+			logger.Error("Could not set up tracing", "error", err)
+		} else {
+			handler = otellambda.InstrumentHandler(h.HandleInvocation, opts...)
+		}
+	}
+
+	lambda.StartWithOptions(handler)
 }

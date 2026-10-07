@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/bwmarrin/discordgo"
 	"github.com/bwmarrin/snowflake"
 	"github.com/elliotwms/bot-lambda/sessionprovider"
@@ -157,7 +156,7 @@ func (s *PinStage) sendInteraction(i *discordgo.InteractionCreate) *PinStage {
 	bs, err := json.Marshal(i)
 	s.require.NoError(err)
 
-	ctx, _ := xray.BeginSegment(context.Background(), "test")
+	ctx := context.Background()
 
 	s.res, s.err = s.handler(ctx, &events.LambdaFunctionURLRequest{
 		RequestContext: events.LambdaFunctionURLRequestContext{
