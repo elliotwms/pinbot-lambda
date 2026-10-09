@@ -8,7 +8,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/elliotwms/bot v0.4.18
 	github.com/elliotwms/bot-lambda v0.3.1
-	github.com/elliotwms/fakediscord v0.20.5
+	github.com/elliotwms/fakediscord v0.21.12
 	github.com/neilotoole/slogt v1.1.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/contrib/detectors/aws/lambda v0.72.0
