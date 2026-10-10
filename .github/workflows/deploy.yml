@@ -66,18 +66,22 @@ jobs:
         run: |
           aws lambda update-function-code --function-name "$FUNCTION" --zip-file fileb://pinbot.zip --query 'CodeSha256' --output text
           aws lambda wait function-updated-v2 --function-name "$FUNCTION"
-      - name: Register commands
+      - name: Run tasks
         env:
           FUNCTION: pinbot-test
-        # the function registers its own commands with Discord, using the bot token it already has
+        # register_commands: the function registers its own commands with Discord, using the bot token it already has
+        # report_metrics: record Guilds and UserInstalls now rather than at the next hourly run, so the metrics-missing
+        # alarm has data straight away, and a broken Discord token fails the deploy
         run: |
-          aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
-            --payload '{"task":"register_commands"}' response.json > invoke.json
-          cat response.json
-          if jq -e '.FunctionError' invoke.json > /dev/null; then
-            echo "::error::register_commands failed: $(cat response.json)"
-            exit 1
-          fi
+          for task in register_commands report_metrics; do
+            aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
+              --payload "{\"task\":\"$task\"}" response.json > invoke.json
+            echo "$task: $(cat response.json)"
+            if jq -e '.FunctionError' invoke.json > /dev/null; then
+              echo "::error::$task failed: $(cat response.json)"
+              exit 1
+            fi
+          done
   prod:
     name: Deploy to prod
     needs: [build, test]
@@ -99,15 +103,19 @@ jobs:
         run: |
           aws lambda update-function-code --function-name "$FUNCTION" --zip-file fileb://pinbot.zip --query 'CodeSha256' --output text
           aws lambda wait function-updated-v2 --function-name "$FUNCTION"
-      - name: Register commands
+      - name: Run tasks
         env:
           FUNCTION: pinbot-prod
-        # the function registers its own commands with Discord, using the bot token it already has
+        # register_commands: the function registers its own commands with Discord, using the bot token it already has
+        # report_metrics: record Guilds and UserInstalls now rather than at the next hourly run, so the metrics-missing
+        # alarm has data straight away, and a broken Discord token fails the deploy
         run: |
-          aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
-            --payload '{"task":"register_commands"}' response.json > invoke.json
-          cat response.json
-          if jq -e '.FunctionError' invoke.json > /dev/null; then
-            echo "::error::register_commands failed: $(cat response.json)"
-            exit 1
-          fi
+          for task in register_commands report_metrics; do
+            aws lambda invoke --function-name "$FUNCTION" --cli-binary-format raw-in-base64-out \
+              --payload "{\"task\":\"$task\"}" response.json > invoke.json
+            echo "$task: $(cat response.json)"
+            if jq -e '.FunctionError' invoke.json > /dev/null; then
+              echo "::error::$task failed: $(cat response.json)"
+              exit 1
+            fi
+          done
