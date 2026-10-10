@@ -54,7 +54,7 @@ flowchart LR
     fn -- "JSON logs and<br/>EMF metrics" --> cw[("CloudWatch")]
     fn -. "traces, via the ADOT<br/>collector layer (optional)" .-> xray[("X-Ray")]
     schedule["EventBridge<br/>hourly"] -- "report_metrics task" --> fn
-    deploy["GitHub Actions<br/>deploy"] -- "register_commands task" --> fn
+    deploy["GitHub Actions<br/>deploy"] -- "register_commands and<br/>report_metrics tasks" --> fn
 ```
 
 When someone uses the Pin command:
@@ -85,7 +85,7 @@ Pinbot also handles **tasks**: invocations that come from AWS rather than Discor
 | Task                | Run by                                       | What it does                                                         |
 |---------------------|----------------------------------------------|----------------------------------------------------------------------|
 | `register_commands` | The Deploy workflow, after each deploy        | Registers the commands defined in code (`handlers.PinCommand`) with Discord |
-| `report_metrics`    | An hourly EventBridge rule (infra-pinbot)     | Records the `Guilds` and `UserInstalls` metrics from Discord's approximate counts |
+| `report_metrics`    | An hourly EventBridge rule (infra-pinbot), and the Deploy workflow after each deploy | Records the `Guilds` and `UserInstalls` metrics from Discord's approximate counts |
 
 #### Permissions
 
@@ -120,14 +120,14 @@ Every release created by the Release workflow is built once and deployed by the 
 flowchart LR
     merge["Merge to master"] --> release["Release workflow<br/>tests, then a release<br/>from the commit messages"]
     release --> build["Deploy workflow<br/>build once"]
-    build --> test["test<br/>update code,<br/>register commands"]
+    build --> test["test<br/>update code, register<br/>commands, report metrics"]
     test --> approve{"Approval"}
-    approve --> prod["prod<br/>update code,<br/>register commands"]
+    approve --> prod["prod<br/>update code, register<br/>commands, report metrics"]
 ```
 
 Deployment uses the `test` and `prod` GitHub environments. Each has an `AWS_ROLE_ARN` variable set to the `deploy_role_arn` output of the matching infra-pinbot workspace, and `prod` requires a reviewer.
 
-After deploying, the workflow registers the bot's commands with Discord by invoking the function with `{"task":"register_commands"}`. The command definitions live in code (`handlers.PinCommand`), and registering overwrites the application's global commands.
+After deploying, the workflow registers the bot's commands with Discord by invoking the function with `{"task":"register_commands"}`. The command definitions live in code (`handlers.PinCommand`), and registering overwrites the application's global commands. It then runs `{"task":"report_metrics"}`, so a new stack has its `Guilds` and `UserInstalls` metrics straight away instead of at the next hourly run, and a broken bot token fails the deploy.
 
 ### Monitoring
 

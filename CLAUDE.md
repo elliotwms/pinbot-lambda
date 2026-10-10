@@ -9,7 +9,7 @@ A Discord bot with one message command, "Pin". It runs as an AWS Lambda function
   - The endpoint's handler is `HandleInvocation`, which takes both interactions from the function URL and tasks invoked directly: `{"task":"register_commands"}` and `{"task":"report_metrics"}`.
 - `internal/metrics`: records CloudWatch metrics in the embedded metric format, as JSON log lines in namespace `Pinbot` with a `Stack` dimension.
   - `Pins` has an `Outcome` dimension.
-  - `Guilds` and `UserInstalls` are recorded hourly by `report_metrics`.
+  - `Guilds` and `UserInstalls` are recorded by `report_metrics`, hourly and after each deploy.
   - Keep dimensions low-cardinality; IDs such as `guild_id` go in properties.
 - `internal/tracing`: when `TRACING_ENABLED=true`, configures the OpenTelemetry SDK to export bot-lambda's spans over OTLP/HTTP to the ADOT collector layer, which sends them to X-Ray. Don't set it without the layer: each invocation would wait on a failed export.
 - `internal/handlers/pin.go`: the Pin command, where all the bot's logic lives.
@@ -39,7 +39,7 @@ Build the Lambda as CI does: `GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ta
 
 - Commit messages and PR titles use [Conventional Commits](https://www.conventionalcommits.org). Every merge to `master` runs `release.yml`, which works out the next version from them, creates a GitHub release and deploys it. PRs are squash-merged, so the PR title becomes the commit message.
 - Dependabot patch and minor updates are approved and auto-merged by `dependabot_reviewer.yml`, using a GitHub App token whose credentials come from [elliotwms/infra](https://github.com/elliotwms/infra).
-- The `Pin` command's definition is `handlers.PinCommand`. `deploy.yml` registers it after each deploy by invoking the function with the `register_commands` task, which overwrites the app's global commands. Commands not defined in code are deleted.
+- The `Pin` command's definition is `handlers.PinCommand`. `deploy.yml` registers it after each deploy by invoking the function with the `register_commands` task, which overwrites the app's global commands. Commands not defined in code are deleted. It then runs `report_metrics`, so the metrics-missing alarm has data as soon as a stack is deployed.
 
 ## Deployment
 
