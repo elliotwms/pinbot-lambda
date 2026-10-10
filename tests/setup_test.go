@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"net/http"
+	"net/url"
 	"os"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 const testGuildName = "Pinbot Integration Testing"
 const testAppID = "1290742494824366183"
 const testToken = "bot"
+const fakediscordURL = "http://localhost:8080/"
 
 var (
 	session     *discordgo.Session
@@ -19,8 +22,15 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	pkgfakediscord.Configure("http://localhost:8080/")
-	fakediscord = pkgfakediscord.NewClient(testToken)
+	u, err := url.Parse(fakediscordURL)
+	if err != nil {
+		panic(err)
+	}
+	// send every request for Discord to fakediscord. This is set on the default transport rather than with
+	// ConfigureSession, because bot-lambda creates its own session for each interaction to send the deferred response
+	http.DefaultTransport = pkgfakediscord.Transport(u, http.DefaultTransport)
+
+	fakediscord = pkgfakediscord.NewClient(testToken).WithBaseURL(fakediscordURL)
 
 	openSession()
 
