@@ -7,7 +7,7 @@ require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/elliotwms/bot v0.4.18
-	github.com/elliotwms/bot-lambda v0.3.1
+	github.com/elliotwms/bot-lambda v0.3.3
 	github.com/elliotwms/fakediscord v0.21.13
 	github.com/neilotoole/slogt v1.1.0
 	github.com/stretchr/testify v1.12.1
